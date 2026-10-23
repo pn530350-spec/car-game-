@@ -1,0 +1,310 @@
+PRINCE BARMAN RACING 🏎️
+
+File name: index.html
+
+Neeche ka poora code copy karke index.html mein save karo.
+
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prince Barman Racing</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{
+ background:#080d16;color:white;font-family:Arial;
+ overflow:hidden;user-select:none
+}
+#game{position:relative;width:100%;height:100dvh;
+ background:#416b32;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+.top{
+ position:absolute;top:12px;left:0;width:100%;
+ text-align:center;pointer-events:none;text-shadow:2px 3px 5px #000
+}
+h1{font-size:clamp(20px,5vw,32px);color:#ffca28}
+.top p{font-size:12px;margin-top:5px}
+.hud{
+ position:absolute;top:95px;left:12px;
+ background:#08111ddf;padding:12px;border-radius:12px;
+ border:1px solid #ffffff55;min-width:130px
+}
+#speed{font-size:28px;color:#42eaff;font-weight:bold}
+#gear{font-size:12px;color:#ddd;margin-top:3px}
+#score{margin-top:8px;color:#ffcf43}
+.controls{
+ position:absolute;bottom:18px;width:100%;
+ display:flex;justify-content:space-around;align-items:center;
+ gap:8px;padding:0 10px
+}
+button{
+ border:2px solid #ffffff70;border-radius:14px;
+ background:#101d2bed;color:white;font-weight:bold;
+ padding:15px 16px;font-size:16px;touch-action:none
+}
+button:active{background:#ffb300;color:#111}
+#nitro{background:#ff8a00;color:#111}
+#overlay{
+ position:absolute;inset:0;background:#050b14eF;
+ display:flex;flex-direction:column;align-items:center;
+ justify-content:center;text-align:center;padding:25px
+}
+#overlay h2{font-size:clamp(30px,8vw,48px);color:#ffca28}
+#overlay p{line-height:1.8;margin:14px 0;color:#eee}
+#overlay button{background:#ffca28;color:#111;padding:16px 28px}
+.hide{display:none!important}
+.small{font-size:12px;color:#bfc9d7;margin-top:15px}
+</style>
+</head>
+<body>
+<div id="game">
+ <canvas id="canvas"></canvas>
+
+ <div class="top">
+  <h1>🏁 PRINCE BARMAN RACING</h1>
+  <p>CLASS 9TH • EXTREME HIGHWAY</p>
+ </div>
+
+ <div class="hud">
+  <div id="speed">0 <span style="font-size:13px">km/h</span></div>
+  <div id="gear">ENGINE: READY</div>
+  <div id="score">SCORE: 0</div>
+ </div>
+
+ <div class="controls">
+  <button id="left">⬅ LEFT</button>
+  <button id="brake">BRAKE</button>
+  <button id="nitro">⚡ NITRO</button>
+  <button id="right">RIGHT ➡</button>
+ </div>
+
+ <div id="overlay">
+  <h2>🏎️ PRINCE RACING</h2>
+  <p>
+   Welcome, Prince Barman!<br>
+   CLASS 9TH • HIGHWAY CHALLENGE<br>
+   Reach up to 600 KM/H!<br>
+   Dodge traffic and beat your high score.
+  </p>
+  <button id="start">▶ START RACE</button>
+  <div class="small">Use arrow keys or touch controls</div>
+ </div>
+</div>
+
+<script>
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const $=id=>document.getElementById(id);
+
+let W=0,H=0,roadW=0;
+let running=false, speed=0, score=0, distance=0;
+let playerX=0, steering=0, nitro=false, braking=false;
+let cars=[], linesOffset=0,last=0,spawnTimer=0;
+const maxSpeed=600;
+
+function resize(){
+ const dpr=Math.min(devicePixelRatio||1,2);
+ W=canvas.clientWidth; H=canvas.clientHeight;
+ canvas.width=W*dpr; canvas.height=H*dpr;
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+ roadW=Math.min(W*.78,500);
+}
+window.addEventListener("resize",resize);
+resize();
+
+function roadAt(y){
+ const t=y/H;
+ return W/2 + (W/2)*0.0 +
+        (W*.02)*Math.sin(distance*.0004+t*2);
+}
+function drawRoad(){
+ ctx.fillStyle="#426f32";ctx.fillRect(0,0,W,H);
+
+ // roadside scenery
+ for(let i=0;i<14;i++){
+  let y=((i*110+linesOffset*1.6)%(H+100))-50;
+  let x=W*.09;
+  tree(x,y,1+y/H*.4);
+  tree(W-x,y+40,1+y/H*.4);
+ }
+
+ let topW=roadW*.48, botW=roadW;
+ ctx.fillStyle="#252b33";
+ ctx.beginPath();
+ ctx.moveTo(W/2-topW/2,0);
+ ctx.lineTo(W/2+topW/2,0);
+ ctx.lineTo(W/2+botW/2,H);
+ ctx.lineTo(W/2-botW/2,H);
+ ctx.closePath();ctx.fill();
+
+ // road edge stripes
+ ctx.strokeStyle="#f8f8f8";ctx.lineWidth=4;
+ ctx.beginPath();
+ ctx.moveTo(W/2-topW/2,0);ctx.lineTo(W/2-botW/2,H);
+ ctx.moveTo(W/2+topW/2,0);ctx.lineTo(W/2+botW/2,H);
+ ctx.stroke();
+
+ // lane markers
+ for(let lane=1;lane<=2;lane++){
+  for(let i=0;i<12;i++){
+   let y=((i*90+linesOffset*2)%(H+100))-30;
+   let t=Math.max(0,y/H);
+   let rw=topW+(botW-topW)*t;
+   let x=W/2-rw/2+rw*lane/3;
+   ctx.fillStyle="#f7f4d5";
+   ctx.fillRect(x-2,y,4,25+ t*25);
+  }
+ }
+}
+function tree(x,y,s){
+ ctx.fillStyle="#55391f";
+ ctx.fillRect(x-3*s,y,6*s,18*s);
+ ctx.fillStyle="#163f25";
+ ctx.beginPath();ctx.arc(x,y,15*s,0,Math.PI*2);ctx.fill();
+ ctx.fillStyle="#285e30";
+ ctx.beginPath();ctx.arc(x-6*s,y-7*s,10*s,0,Math.PI*2);ctx.fill();
+}
+
+function drawCar(x,y,w,h,color,player=false){
+ ctx.save();ctx.translate(x,y);
+ // shadow
+ ctx.fillStyle="#0008";
+ ctx.beginPath();ctx.ellipse(0,h*.42,w*.65,h*.48,0,0,Math.PI*2);ctx.fill();
+ // wheels
+ ctx.fillStyle="#101114";
+ for(let side of [-1,1]){
+  ctx.fillRect(side*w*.42-w*.09,-h*.25,w*.18,h*.3);
+  ctx.fillRect(side*w*.42-w*.09,h*.13,w*.18,h*.3);
+ }
+ // body
+ ctx.fillStyle=color;
+ ctx.beginPath();
+ ctx.moveTo(-w*.35,h*.45);
+ ctx.lineTo(-w*.46,-h*.12);
+ ctx.lineTo(-w*.3,-h*.46);
+ ctx.lineTo(w*.3,-h*.46);
+ ctx.lineTo(w*.46,-h*.12);
+ ctx.lineTo(w*.35,h*.45);
+ ctx.closePath();ctx.fill();
+ // windshield
+ ctx.fillStyle=player?"#76e5ff":"#a5d7ec";
+ ctx.beginPath();
+ ctx.moveTo(-w*.27,-h*.28);ctx.lineTo(w*.27,-h*.28);
+ ctx.lineTo(w*.22,-h*.04);ctx.lineTo(-w*.22,-h*.04);
+ ctx.closePath();ctx.fill();
+ ctx.fillStyle="#172d3c";
+ ctx.fillRect(-w*.23,h*.05,w*.46,h*.15);
+ ctx.fillStyle="#fff8bb";
+ ctx.fillRect(-w*.32,h*.29,w*.15,h*.07);
+ ctx.fillRect(w*.17,h*.29,w*.15,h*.07);
+ if(player){
+  ctx.fillStyle="#00d9ff";
+  ctx.fillRect(-w*.13,h*.39,w*.26,h*.045);
+ }
+ ctx.restore();
+}
+
+function spawnCar(){
+ const lane=[-.29,0,.29][Math.floor(Math.random()*3)];
+ cars.push({lane,y:-100,color:["#e34242","#f4bb35","#38a9df","#9b70dc"][Math.floor(Math.random()*4)],
+ speed:Math.random()*100+60});
+}
+function update(dt){
+ if(!running)return;
+ const acceleration=nitro?280:145;
+ const target=braking?0:(nitro?600:430);
+ speed+=(target-speed)*Math.min(1,dt*(speed<target?0.65:1.5));
+ speed=Math.max(0,Math.min(maxSpeed,speed));
+ playerX+=steering*dt*W*.65;
+ playerX=Math.max(-roadW*.32,Math.min(roadW*.32,playerX));
+ distance+=speed*dt/3.6;
+ score+=Math.floor(speed*dt/20);
+ linesOffset=(linesOffset+speed*dt*.7)%90;
+ spawnTimer+=dt;
+ if(spawnTimer>Math.max(.38,1.5-speed/650)){
+  spawnCar();spawnTimer=0;
+ }
+ cars.forEach(c=>{
+  c.y+=(speed*.75+c.speed*.3)*dt;
+  const cx=W/2+c.lane*roadW;
+  const px=W/2+playerX;
+  if(c.y>H*.65&&c.y<H*.91&&Math.abs(cx-px)<roadW*.18){
+   endGame(); 
+  }
+ });
+ cars=cars.filter(c=>c.y<H+100);
+ $("speed").innerHTML=Math.round(speed)+' <span style="font-size:13px">km/h</span>';
+ $("gear").textContent=nitro?"⚡ NITRO BOOST":speed>0?"ENGINE: RUNNING":"ENGINE: READY";
+ $("score").textContent="SCORE: "+score;
+}
+function render(){
+ drawRoad();
+ cars.forEach(c=>drawCar(W/2+c.lane*roadW,c.y,roadW*.13,roadW*.24,c.color));
+ drawCar(W/2+playerX,H*.79,roadW*.17,roadW*.31,"#e21c36",true);
+ if(nitro&&running){
+  ctx.fillStyle="#40dfff";
+  ctx.beginPath();
+  ctx.moveTo(W/2+playerX-roadW*.035,H*.90);
+  ctx.lineTo(W/2+playerX,H*.99);
+  ctx.lineTo(W/2+playerX+roadW*.035,H*.90);
+  ctx.fill();
+ }
+}
+function loop(t){
+ let dt=Math.min((t-last)/1000||0,.04);last=t;
+ update(dt);render();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function startGame(){
+ cars=[];speed=0;score=0;distance=0;
+ playerX=0;steering=0;spawnTimer=0;
+ running=true;$("overlay").classList.add("hide");
+}
+function endGame(){
+ if(!running)return;
+ running=false;
+ $("overlay").innerHTML=`
+  <h2>🏁 RACE OVER!</h2>
+  <p>PRINCE BARMAN RACING<br>
+  Score: ${score}<br>
+  Maximum speed: ${Math.round(speed)} km/h</p>
+  <button id="restart">🔄 RACE AGAIN</button>`;
+ $("overlay").classList.remove("hide");
+ $("restart").onclick=startGame;
+}
+$("start").onclick=startGame;
+
+function hold(id,down,up){
+ const b=$(id);
+ b.addEventListener("pointerdown",e=>{
+  e.preventDefault();b.setPointerCapture(e.pointerId);down();
+ });
+ const release=e=>{e.preventDefault();up()};
+ b.addEventListener("pointerup",release);
+ b.addEventListener("pointercancel",release);
+ b.addEventListener("lostpointercapture",up);
+}
+hold("left",()=>steering=-1,()=>{if(steering===-1)steering=0});
+hold("right",()=>steering=1,()=>{if(steering===1)steering=0});
+hold("nitro",()=>nitro=true,()=>nitro=false);
+hold("brake",()=>braking=true,()=>braking=false);
+
+document.addEventListener("keydown",e=>{
+ if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key))e.preventDefault();
+ if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")steering=-1;
+ if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")steering=1;
+ if(e.key==="ArrowUp"||e.key===" ")nitro=true;
+ if(e.key==="ArrowDown")braking=true;
+});
+document.addEventListener("keyup",e=>{
+ if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a"){if(steering===-1)steering=0}
+ if(e.key==="ArrowRight"||e.key.toLowerCase()==="d"){if(steering===1)steering=0}
+ if(e.key==="ArrowUp"||e.key===" ")nitro=false;
+ if(e.key==="ArrowDown")braking=false;
+});
+</script>
+</body>
+</html> 
